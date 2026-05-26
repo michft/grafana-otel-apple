@@ -87,6 +87,12 @@ Usually that means:
 - `docs/decisions.md` for runtime-specific reasoning
 - `CHANGELOG.md` for notable repo changes
 
+## Pull Request Labels
+
+PRs are automatically labeled with a `vouch:*` trust status and a `size:*` diff size based on changed lines.
+
+If you are an external contributor, expect `vouch:unvouched` until we explicitly add you to [.github/VOUCHED.txt](./.github/VOUCHED.txt).
+
 ## Keep Changes Narrow
 
 Prefer small, scriptable, reproducible changes over broad refactors.
