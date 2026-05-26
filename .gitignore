@@ -1,4 +1,5 @@
 .env
 configs/rendered/*.yaml
+configs/rendered/grafana-provisioning/
 !configs/rendered/.gitkeep
-
+.jj

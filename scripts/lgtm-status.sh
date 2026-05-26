@@ -35,6 +35,7 @@ done
 echo "URLs:"
 echo "  Grafana: http://localhost:3000"
 echo "  OTLP HTTP: http://localhost:4318"
+echo "  Collector health: http://localhost:13133/ready"
 echo "  Prometheus: http://localhost:9090"
 echo "  Tempo: http://localhost:3200"
 echo "  Pyroscope: http://localhost:4040"

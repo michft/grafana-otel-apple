@@ -43,8 +43,11 @@ PYROSCOPE_USER=${PYROSCOPE_USER:-0:0}
 PYROSCOPE_READY_TIMEOUT=${PYROSCOPE_READY_TIMEOUT:-120}
 GRAFANA_CPUS=${GRAFANA_CPUS:-1}
 GRAFANA_MEMORY=${GRAFANA_MEMORY:-1G}
+GRAFANA_USER=${GRAFANA_USER:-0:0}
+GRAFANA_READY_TIMEOUT=${GRAFANA_READY_TIMEOUT:-30}
 OTELCOL_CPUS=${OTELCOL_CPUS:-1}
 OTELCOL_MEMORY=${OTELCOL_MEMORY:-1G}
+OTELCOL_READY_TIMEOUT=${OTELCOL_READY_TIMEOUT:-30}
 
 GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
 GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -157,6 +160,11 @@ if [[ ! -f "${ROOT_DIR}/configs/rendered/grafana-datasources.yaml" ]]; then
   exit 1
 fi
 
+if [[ ! -d "${ROOT_DIR}/configs/rendered/grafana-provisioning" ]]; then
+  echo "Missing rendered Grafana provisioning directory" >&2
+  exit 1
+fi
+
 if [[ ! -f "${ROOT_DIR}/configs/rendered/otelcol-config.yaml" ]]; then
   echo "Missing rendered otelcol config" >&2
   exit 1
@@ -164,6 +172,7 @@ fi
 
 container run -d \
   --name "${GRAFANA_CONTAINER}" \
+  --user "${GRAFANA_USER}" \
   --network "${STACK_NETWORK}" \
   --cpus "${GRAFANA_CPUS}" \
   --memory "${GRAFANA_MEMORY}" \
@@ -174,9 +183,7 @@ container run -d \
   -e "GF_AUTH_ANONYMOUS_ORG_ROLE=${GF_AUTH_ANONYMOUS_ORG_ROLE}" \
   -e "GF_PLUGINS_PREINSTALL=${GF_PLUGINS_PREINSTALL}" \
   -v "${GRAFANA_VOLUME}:/var/lib/grafana" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/grafana-datasources.yaml,target=/etc/grafana/provisioning/datasources/datasources.yaml,readonly" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/grafana-dashboards.yaml,target=/etc/grafana/provisioning/dashboards/dashboards.yaml,readonly" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/dashboards,target=/etc/grafana/provisioning/dashboards/json,readonly" \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/grafana-provisioning,target=/etc/grafana/provisioning,readonly" \
   "${GRAFANA_IMAGE}"
 
 container run -d \
@@ -186,21 +193,23 @@ container run -d \
   --memory "${OTELCOL_MEMORY}" \
   -p 4317:4317 \
   -p 4318:4318 \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/otelcol-config.yaml,target=/etc/otelcol/config.yaml,readonly" \
+  -p 13133:13133 \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly" \
   "${OTELCOL_IMAGE}" \
   --feature-gates=service.profilesSupport \
-  --config=/etc/otelcol/config.yaml
+  --config=/rendered/otelcol-config.yaml
 
 wait_for_http "Prometheus" "http://127.0.0.1:9090/api/v1/status/runtimeinfo"
 wait_for_http "Tempo" "http://127.0.0.1:3200/ready"
 wait_for_http "Pyroscope" "http://127.0.0.1:4040/ready" "${PYROSCOPE_READY_TIMEOUT}"
-wait_for_http "Grafana" "http://127.0.0.1:3000/api/health"
-wait_for_http "OpenTelemetry Collector" "http://127.0.0.1:13133/ready" 5 || true
+wait_for_http "Grafana" "http://127.0.0.1:3000/api/health" "${GRAFANA_READY_TIMEOUT}"
+wait_for_http "OpenTelemetry Collector" "http://127.0.0.1:13133/ready" "${OTELCOL_READY_TIMEOUT}"
 
 echo "LGTM-style stack is up"
 echo "Grafana: http://localhost:3000"
 echo "OTLP gRPC: localhost:4317"
 echo "OTLP HTTP: http://localhost:4318"
+echo "Collector health: http://localhost:13133/ready"
 echo "Prometheus: http://localhost:9090"
 echo "Tempo: http://localhost:3200"
 echo "Pyroscope: http://localhost:4040"
