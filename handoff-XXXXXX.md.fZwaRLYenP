@@ -1,0 +1,165 @@
+# Handoff: Continue Apple Containers LGTM Decomposition
+
+## Scope
+
+Continue the `grafana/otel-lgtm` decomposition in `/Users/mt/src/otel` using Apple `container`, starting from the current state where Prometheus, Loki, Tempo, and Pyroscope are individually launchable.
+
+## Repo state
+
+Key repo artifacts already in place:
+
+- Plan: [PLAN.md](/Users/mt/src/otel/PLAN.md)
+- Runtime decisions: [docs/decisions.md](/Users/mt/src/otel/docs/decisions.md)
+- Image/version pins: [versions.env](/Users/mt/src/otel/versions.env)
+- Runtime overrides: [.env.example](/Users/mt/src/otel/.env.example)
+- Config renderer: [scripts/render-configs.sh](/Users/mt/src/otel/scripts/render-configs.sh)
+- Main stack scripts: [scripts/bootstrap.sh](/Users/mt/src/otel/scripts/bootstrap.sh), [scripts/lgtm-up.sh](/Users/mt/src/otel/scripts/lgtm-up.sh), [scripts/lgtm-down.sh](/Users/mt/src/otel/scripts/lgtm-down.sh)
+- Dedicated service scripts:
+  - [scripts/prometheus-up.sh](/Users/mt/src/otel/scripts/prometheus-up.sh)
+  - [scripts/prometheus-down.sh](/Users/mt/src/otel/scripts/prometheus-down.sh)
+  - [scripts/loki-up.sh](/Users/mt/src/otel/scripts/loki-up.sh)
+  - [scripts/loki-down.sh](/Users/mt/src/otel/scripts/loki-down.sh)
+  - [scripts/tempo-up.sh](/Users/mt/src/otel/scripts/tempo-up.sh)
+  - [scripts/tempo-down.sh](/Users/mt/src/otel/scripts/tempo-down.sh)
+  - [scripts/pyroscope-up.sh](/Users/mt/src/otel/scripts/pyroscope-up.sh)
+  - [scripts/pyroscope-down.sh](/Users/mt/src/otel/scripts/pyroscope-down.sh)
+
+Uncommitted changes currently present:
+
+- modified: `.env.example`, `docs/decisions.md`, `scripts/lgtm-up.sh`
+- added: `scripts/prometheus-up.sh`, `scripts/prometheus-down.sh`, `scripts/loki-up.sh`, `scripts/loki-down.sh`, `scripts/tempo-up.sh`, `scripts/tempo-down.sh`, `scripts/pyroscope-up.sh`, `scripts/pyroscope-down.sh`
+
+## Verified working behavior
+
+### Prometheus
+
+- `scripts/prometheus-up.sh` works.
+- `curl http://127.0.0.1:9090/api/v1/status/runtimeinfo` returned success.
+- Data is persisted across container recreation because the script deletes only the container and reuses the named volume `otel-prometheus-data`.
+
+### Loki
+
+- `scripts/loki-up.sh` works.
+- `curl http://127.0.0.1:3100/ready` returned `ready`.
+- Loki readiness was much slower than process start. Measured healthy `/ready` time on this machine was about 82 seconds in one test run.
+
+### Tempo
+
+- `scripts/tempo-up.sh` works.
+- `curl http://127.0.0.1:3200/ready` returned `ready`.
+- Tempo currently expects Prometheus to already exist because `render-configs.sh` renders Tempo's `metrics_generator.storage.remote_write.url` from the Prometheus container IP.
+
+### Pyroscope
+
+- `scripts/pyroscope-up.sh` works.
+- `curl http://127.0.0.1:4040/ready` returned `ready`.
+- Pyroscope required the same Apple Containers adjustments as the other backends:
+  - run as `0:0`
+  - mount the rendered config directory, not a single file
+- Pyroscope readiness is slow on this machine. One measured run took about 92 seconds from process start to `/ready` returning `200 OK`.
+
+## Apple Containers quirks already discovered
+
+These were the main findings and are already reflected in code/docs:
+
+1. Single-file bind mounts were not working for this flow.
+   Use directory mounts like:
+   - `--mount type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly`
+   Then point the service to `/rendered/<config>.yaml`.
+
+2. Fresh Apple named volumes caused permission issues with default non-root image users.
+   Current workaround:
+   - Prometheus runs as `0:0`
+   - Loki runs as `0:0`
+   - Tempo runs as `0:0`
+   - Pyroscope runs as `0:0`
+
+3. Apple custom-network IP connectivity worked.
+   Container-name DNS did not work in the early Alpine test, so the repo currently renders backend IPs into config files.
+
+4. Apple `container inspect` returns `[]` with exit code `0` for missing containers.
+   Scripts already handle that.
+
+## Current launch order assumptions
+
+Today the practical order is:
+
+1. `scripts/prometheus-up.sh`
+2. `scripts/loki-up.sh`
+3. `scripts/tempo-up.sh`
+4. `scripts/pyroscope-up.sh`
+
+Tempo depends on Prometheus for rendered config. Pyroscope, Loki, and Prometheus are individually self-contained.
+
+## Most likely next tasks
+
+### 1. Make OTel Collector launchable
+
+Collector depends on rendered backend IPs, so it should come after Prometheus/Loki/Tempo/Pyroscope.
+
+Likely task:
+
+- get `scripts/render-configs.sh` to emit a valid `otelcol-config.yaml`
+- launch with `/rendered/otelcol-config.yaml`
+- verify `http://127.0.0.1:13133/ready`
+- then test OTLP ingress to `4317`/`4318`
+
+### 2. Make Grafana launchable
+
+Grafana should come after all backend URLs are available.
+
+Likely task:
+
+- use rendered datasource config from `/rendered/grafana-datasources.yaml`
+- use rendered dashboards provisioning
+- verify `http://127.0.0.1:3000/api/health`
+- confirm Prometheus/Loki/Tempo datasources are healthy
+
+### 3. Reconcile `lgtm-up.sh`
+
+The monolithic bring-up script has only been partially updated.
+
+Known status:
+
+- Prometheus block updated to working mount/user pattern
+- Loki block updated to working mount/user pattern
+- Tempo block updated to working mount/user pattern
+- Pyroscope block updated to working mount/user pattern and longer readiness wait
+- Grafana and OTel Collector still need real runtime verification
+
+## Commands that were known-good
+
+Prometheus:
+
+```sh
+/Users/mt/src/otel/scripts/prometheus-up.sh
+curl -fsS http://127.0.0.1:9090/api/v1/status/runtimeinfo
+```
+
+Loki:
+
+```sh
+/Users/mt/src/otel/scripts/loki-up.sh
+curl -fsS http://127.0.0.1:3100/ready
+```
+
+Tempo:
+
+```sh
+/Users/mt/src/otel/scripts/tempo-up.sh
+curl -fsS http://127.0.0.1:3200/ready
+```
+
+Pyroscope:
+
+```sh
+/Users/mt/src/otel/scripts/pyroscope-up.sh
+curl -fsS http://127.0.0.1:4040/ready
+```
+
+## Suggested skills for the next session
+
+- `diagnose`
+  - best fit for iterating on Grafana or OTel Collector with a tight `container run` loop
+- `handoff`
+  - use again at the end if the next agent needs to pass off Collector/Grafana progress

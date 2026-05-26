@@ -30,12 +30,17 @@ PYROSCOPE_VOLUME=${PYROSCOPE_VOLUME:-${STACK_NAME}-pyroscope-data}
 
 PROMETHEUS_CPUS=${PROMETHEUS_CPUS:-1}
 PROMETHEUS_MEMORY=${PROMETHEUS_MEMORY:-1G}
+PROMETHEUS_USER=${PROMETHEUS_USER:-0:0}
 LOKI_CPUS=${LOKI_CPUS:-1}
 LOKI_MEMORY=${LOKI_MEMORY:-1G}
+LOKI_USER=${LOKI_USER:-0:0}
 TEMPO_CPUS=${TEMPO_CPUS:-1}
 TEMPO_MEMORY=${TEMPO_MEMORY:-1G}
+TEMPO_USER=${TEMPO_USER:-0:0}
 PYROSCOPE_CPUS=${PYROSCOPE_CPUS:-1}
 PYROSCOPE_MEMORY=${PYROSCOPE_MEMORY:-1G}
+PYROSCOPE_USER=${PYROSCOPE_USER:-0:0}
+PYROSCOPE_READY_TIMEOUT=${PYROSCOPE_READY_TIMEOUT:-120}
 GRAFANA_CPUS=${GRAFANA_CPUS:-1}
 GRAFANA_MEMORY=${GRAFANA_MEMORY:-1G}
 OTELCOL_CPUS=${OTELCOL_CPUS:-1}
@@ -88,40 +93,43 @@ done
 
 container run -d \
   --name "${PROMETHEUS_CONTAINER}" \
+  --user "${PROMETHEUS_USER}" \
   --network "${STACK_NETWORK}" \
   --cpus "${PROMETHEUS_CPUS}" \
   --memory "${PROMETHEUS_MEMORY}" \
   -p 9090:9090 \
   -v "${PROMETHEUS_VOLUME}:/prometheus" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/prometheus.yaml,target=/etc/prometheus/prometheus.yml,readonly" \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly" \
   "${PROMETHEUS_IMAGE}" \
   --web.enable-remote-write-receiver \
   --web.enable-otlp-receiver \
   --enable-feature=exemplar-storage \
   --storage.tsdb.path=/prometheus \
-  --config.file=/etc/prometheus/prometheus.yml
+  --config.file=/rendered/prometheus.yaml
 
 container run -d \
   --name "${LOKI_CONTAINER}" \
+  --user "${LOKI_USER}" \
   --network "${STACK_NETWORK}" \
   --cpus "${LOKI_CPUS}" \
   --memory "${LOKI_MEMORY}" \
   -v "${LOKI_VOLUME}:/data/loki" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/loki-config.yaml,target=/etc/loki/config.yaml,readonly" \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly" \
   "${LOKI_IMAGE}" \
-  -config.file=/etc/loki/config.yaml
+  -config.file=/rendered/loki-config.yaml
 
 container run -d \
   --name "${PYROSCOPE_CONTAINER}" \
+  --user "${PYROSCOPE_USER}" \
   --network "${STACK_NETWORK}" \
   --cpus "${PYROSCOPE_CPUS}" \
   --memory "${PYROSCOPE_MEMORY}" \
   -p 4040:4040 \
   -v "${PYROSCOPE_VOLUME}:/data/pyroscope" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/pyroscope-config.yaml,target=/etc/pyroscope/config.yaml,readonly" \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly" \
   "${PYROSCOPE_IMAGE}" \
   server \
-  -config.file=/etc/pyroscope/config.yaml
+  -config.file=/rendered/pyroscope-config.yaml
 
 "${ROOT_DIR}/scripts/render-configs.sh"
 
@@ -132,14 +140,15 @@ fi
 
 container run -d \
   --name "${TEMPO_CONTAINER}" \
+  --user "${TEMPO_USER}" \
   --network "${STACK_NETWORK}" \
   --cpus "${TEMPO_CPUS}" \
   --memory "${TEMPO_MEMORY}" \
   -p 3200:3200 \
   -v "${TEMPO_VOLUME}:/data/tempo" \
-  --mount "type=bind,source=${ROOT_DIR}/configs/rendered/tempo-config.yaml,target=/etc/tempo/tempo.yaml,readonly" \
+  --mount "type=bind,source=${ROOT_DIR}/configs/rendered,target=/rendered,readonly" \
   "${TEMPO_IMAGE}" \
-  -config.file=/etc/tempo/tempo.yaml
+  -config.file=/rendered/tempo-config.yaml
 
 "${ROOT_DIR}/scripts/render-configs.sh"
 
@@ -184,7 +193,7 @@ container run -d \
 
 wait_for_http "Prometheus" "http://127.0.0.1:9090/api/v1/status/runtimeinfo"
 wait_for_http "Tempo" "http://127.0.0.1:3200/ready"
-wait_for_http "Pyroscope" "http://127.0.0.1:4040/ready"
+wait_for_http "Pyroscope" "http://127.0.0.1:4040/ready" "${PYROSCOPE_READY_TIMEOUT}"
 wait_for_http "Grafana" "http://127.0.0.1:3000/api/health"
 wait_for_http "OpenTelemetry Collector" "http://127.0.0.1:13133/ready" 5 || true
 
