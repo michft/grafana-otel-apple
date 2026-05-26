@@ -1,0 +1,4 @@
+.env
+configs/rendered/*.yaml
+!configs/rendered/.gitkeep
+

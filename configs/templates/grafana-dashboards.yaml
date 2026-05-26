@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: "Bundled Dashboards"
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false
+
