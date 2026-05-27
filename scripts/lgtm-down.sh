@@ -22,7 +22,7 @@ for name in \
   "${LOKI_CONTAINER:-${STACK_NAME}-loki}" \
   "${PROMETHEUS_CONTAINER:-${STACK_NAME}-prometheus}"; do
   if [[ "$(container inspect "${name}" 2>/dev/null)" != "[]" ]]; then
-    echo "Removing ${name}"
+    echo "Stopping ${name}"
     container delete -f "${name}" >/dev/null
   fi
 done
