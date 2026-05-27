@@ -29,9 +29,7 @@ require_cmd() {
 }
 
 ensure_container_system() {
-  local status
-  status=$(container system status 2>/dev/null | awk '$1 == "status" { print $2 }')
-  if [[ "${status}" != "running" ]]; then
+  if ! container system status 2>/dev/null | grep -q "status.*running"; then
     echo "Starting Apple container services"
     container system start
   fi
@@ -58,12 +56,16 @@ ensure_volume() {
 
 pull_image() {
   local image_ref=$1
+  if container image inspect "${image_ref}" >/dev/null 2>&1; then
+    echo "Image already local: ${image_ref}"
+    return 0
+  fi
+
   echo "Pulling ${image_ref}"
   container image pull "${image_ref}"
 }
 
 require_cmd container
-require_cmd awk
 
 ensure_container_system
 ensure_network
