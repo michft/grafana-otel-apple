@@ -2,13 +2,15 @@
 
 ## Scope
 
-This repo builds a local LGTM-style observability stack for macOS using Apple's `container` CLI.
+This repo builds a local LGTM-style observability stack for macOS using
+Apple's `container` CLI.
 
 Changes should preserve that focus:
 
 - local developer workflow first
 - Apple Containers compatibility first
-- parity with the developer-facing goals of `grafana/otel-lgtm`, not literal one-image parity
+- parity with the developer-facing goals of `grafana/otel-lgtm`, not
+  literal one-image parity
 
 ## Before You Change Anything
 
@@ -18,7 +20,8 @@ Read these first:
 - [PLAN.md](./PLAN.md)
 - [docs/decisions.md](./docs/decisions.md)
 
-Those files explain the current runtime assumptions and why some choices differ from a Docker-native setup.
+Those files explain the current runtime assumptions and why some choices
+differ from a Docker-native setup.
 
 ## Repo Conventions
 
@@ -28,17 +31,20 @@ Those files explain the current runtime assumptions and why some choices differ 
 - `versions.env` is the source of truth for pinned image tags.
 - scripts in `scripts/` are the operational interface for the stack.
 
-Do not treat generated files as the primary place to make changes. Update templates or scripts, then re-render.
+Do not treat generated files as the primary place to make changes.
+Update templates or scripts, then re-render.
 
 ## Generated Files
 
-If you change config templates, backend wiring, or provisioning behavior, regenerate runtime output with:
+If you change config templates, backend wiring, or provisioning
+behavior, regenerate runtime output with:
 
 ```sh
 ./scripts/render-configs.sh
 ```
 
-Generated files under `configs/rendered/` may change as a consequence. That is expected.
+Generated files under `configs/rendered/` may change as a consequence.
+That is expected.
 
 ## Typical Validation Flow
 
@@ -81,6 +87,13 @@ If you change one of those assumptions, update:
 
 When behavior changes, update the docs in the same change.
 
+For future agents:
+
+- wrap prose and list continuation lines to about 80 columns
+- keep Markdown lines at or below 120 columns when practical
+- if you add a long command, URL, or path, prefer wrapping surrounding
+  prose instead of forcing everything onto one line
+
 Usually that means:
 
 - `README.md` for user-facing setup or behavior
@@ -89,9 +102,11 @@ Usually that means:
 
 ## Pull Request Labels
 
-PRs are automatically labeled with a `vouch:*` trust status and a `size:*` diff size based on changed lines.
+PRs are automatically labeled with a `vouch:*` trust status and a
+`size:*` diff size based on changed lines.
 
-If you are an external contributor, expect `vouch:unvouched` until we explicitly add you to [.github/VOUCHED.txt](./.github/VOUCHED.txt).
+If you are an external contributor, expect `vouch:unvouched` until we
+explicitly add you to [.github/VOUCHED.txt](./.github/VOUCHED.txt).
 
 ## Keep Changes Narrow
 
@@ -101,4 +116,5 @@ In particular:
 
 - keep Apple Containers compatibility explicit
 - keep source-of-truth files separate from generated output
-- keep the difference between this repo and upstream `grafana/otel-lgtm` documented clearly
+- keep the difference between this repo and upstream
+  `grafana/otel-lgtm` documented clearly

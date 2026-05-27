@@ -1,8 +1,16 @@
 # otel
 
-Local LGTM-style OpenTelemetry stack for macOS using Apple's `container` CLI.
+alpha software, version 0.0.1, things are broken, use at own peril
 
-This repo decomposes the upstream `grafana/otel-lgtm` image into separate Apple-managed containers for:
+## Grafana LGTM OTel repo on Apple Containers
+
+Local LGTM-style OpenTelemetry stack for macOS using Apple's
+`container` CLI. Decomposes the upstream
+[`grafana/docker-otel-lgtm`](https://github.com/grafana/docker-otel-lgtm)
+image.
+
+This repo decomposes the upstream `grafana/otel-lgtm` image into separate
+Apple-managed containers for:
 
 - Prometheus
 - Loki
@@ -11,9 +19,18 @@ This repo decomposes the upstream `grafana/otel-lgtm` image into separate Apple-
 - OpenTelemetry Collector
 - Grafana
 
-The result is a local stack that exposes the same main developer-facing ports as the upstream image while staying compatible with Apple Containers' current runtime constraints.
+The result is a local stack that exposes the same main developer-facing
+ports as the upstream image while staying compatible with Apple
+Containers' current runtime constraints.
 
 ## What This Stack Does
+
+![LGTM Stack Dashboard](Screenshot-2026-05-27.png)
+
+The screenshot shows the Grafana dashboard with all four observability backends
+(Loki, Grafana, Tempo, Metrics/Prometheus) integrated and provisioned,
+displaying unified visibility into logs, traces, metrics, and profiles from
+your applications.
 
 Once running, the stack gives you:
 
@@ -24,8 +41,6 @@ Once running, the stack gives you:
 - Tempo on `localhost:3200`
 - Pyroscope on `localhost:4040`
 - Grafana on `localhost:3000`
-
-Loki is part of the stack, but it is not published on a host port by default in the current repo state.
 
 The collector fans signals out to the backend services:
 
@@ -38,19 +53,31 @@ Grafana is provisioned with datasources for all four backends.
 
 ## How This Differs From `grafana/otel-lgtm`
 
-This repo is not a wrapper around the monolithic upstream image. It is a decomposed stack.
+This repo is not a wrapper around the monolithic upstream image. It is a
+decomposed stack.
 
 Key differences:
 
 - Upstream runs one bundled image. This repo runs six separate containers.
-- Upstream assumes a Docker-like runtime. This repo targets Apple's `container` CLI on macOS.
-- Upstream can rely on its own internal filesystem layout. This repo renders config into `configs/rendered/` and mounts directories because Apple Containers rejected the single-file bind mount pattern used in Docker-centric setups.
-- Upstream wires services internally by container-local names and bundled config. This repo renders backend IPs into runtime config because Apple Containers DNS-by-container-name was not treated as reliable in this workflow.
-- Upstream includes optional OBI/eBPF support. This repo intentionally defers OBI.
-- Upstream is one artifact. This repo lets you start or debug services individually.
-- Upstream commonly exposes more of the bundled environment from one image. This repo currently keeps Loki internal-only unless you choose to change the scripts.
+- Upstream assumes a Docker-like runtime. This repo targets Apple's
+  `container` CLI on macOS.
+- Upstream can rely on its own internal filesystem layout. This repo
+  renders config into `configs/rendered/` and mounts directories because
+  Apple `container` `0.12.3` rejected host-file bind mounts in this
+  workflow with `path '.../file' is not a directory`, while mounting the
+  containing directory worked.
+- Upstream wires services internally by container-local names and bundled
+  config. This repo renders backend IPs into runtime config because, on
+  Apple `container` `0.12.3` in this workflow, containers on the same
+  custom network could reach each other by direct IP but name-based
+  access failed with `wget: bad address 'container-name:port'`.
+- Upstream includes optional OBI/eBPF support. This repo intentionally
+  defers OBI.
+- Upstream is one artifact. This repo lets you start or debug services
+  individually.
 
-The goal is the same local observability experience, not byte-for-byte runtime parity.
+The goal is the same local observability experience, not byte-for-byte
+runtime parity.
 
 ## Prerequisites
 
@@ -77,7 +104,8 @@ If it is not running, the repo scripts will attempt to start it.
 cp .env.example .env
 ```
 
-4. Review `.env` if you want to change stack names, resource limits, credentials, or timeouts.
+4. Review `.env` if you want to change stack names, resource limits,
+   credentials, or timeouts.
 5. Bootstrap the runtime and pull images:
 
 ```sh
@@ -151,11 +179,6 @@ Show container status:
 ./scripts/lgtm-status.sh
 ```
 
-Note:
-
-- `lgtm-status.sh` prints only host-reachable endpoints.
-- Loki is intentionally omitted there because it is currently internal-only.
-
 Show logs for all services:
 
 ```sh
@@ -196,7 +219,8 @@ Important conventions:
 
 - `configs/templates/` is source-controlled input config.
 - `configs/rendered/` is generated runtime output.
-- `configs/rendered/grafana-provisioning/` is generated and should not be treated as source of truth.
+- `configs/rendered/grafana-provisioning/` is generated and should not be
+  treated as source of truth.
 - `versions.env` pins image tags.
 - `docs/decisions.md` records runtime-specific decisions.
 - `PLAN.md` captures the implementation plan and scope.
@@ -215,21 +239,29 @@ That script writes generated files into `configs/rendered/`, including:
 - Grafana datasource config
 - rendered Grafana provisioning tree
 
-Do not hand-edit generated files unless you are debugging locally and understand they may be replaced on the next render.
+Do not hand-edit generated files unless you are debugging locally and
+understand they may be replaced on the next render.
 
 ## Known Apple Containers Constraints
 
 This repo currently assumes:
 
-- directory bind mounts are reliable, single-file bind mounts are not
-- backend service discovery is rendered by IP instead of relying on container-name DNS
+- directory bind mounts are reliable, single-file host bind mounts are
+  not in this workflow; generated config is therefore mounted as a
+  directory such as `configs/rendered/` or
+  `configs/rendered/grafana-provisioning/`, and processes read the
+  specific files from inside that directory
+- backend service discovery is rendered by IP instead of relying on
+  container-name DNS; in a local repro on Apple `container` `0.12.3`, a
+  client container on the same custom network could fetch
+  `http://<peer-ip>:8080` but failed to resolve
+  `http://<peer-name>:8080`
 - several services need `0:0` on fresh named volumes
-- Loki is internal-only by default and is not published on a host port
 
-Those constraints are reflected in the scripts and are documented in `docs/decisions.md`.
+Those constraints are reflected in the scripts and are documented in
+`docs/decisions.md`.
 
 ## Related Docs
 
 - [PLAN.md](./PLAN.md)
 - [docs/decisions.md](./docs/decisions.md)
-- [CONTRIBUTING.md](./CONTRIBUTING.md)
