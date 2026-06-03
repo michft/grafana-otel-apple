@@ -65,8 +65,8 @@ Key differences:
 - Upstream is one artifact. This repo lets you start or debug services
   individually.
 
-The goal is the same local observability end-user experience, not byte-for-byte
-runtime parity.
+The goal is to provide the same local observability end-user experience,
+not byte-for-byte runtime parity.
 
 ## Prerequisites
 
