@@ -40,8 +40,10 @@ sync_grafana_provisioning_tree() {
     "${GRAFANA_PROVISIONING_DIR}/dashboards/dashboards.yaml"
 
   find "${GRAFANA_PROVISIONING_DIR}/dashboards/json" -type f -delete
-  find "${ROOT_DIR}/configs/dashboards" -maxdepth 1 -type f ! -name '.gitkeep' \
-    -exec cp {} "${GRAFANA_PROVISIONING_DIR}/dashboards/json/" \;
+  if [[ -d "${ROOT_DIR}/configs/dashboards/json" ]]; then
+    find "${ROOT_DIR}/configs/dashboards/json" -maxdepth 1 -type f -name '*.json' \
+      -exec cp {} "${GRAFANA_PROVISIONING_DIR}/dashboards/json/" \;
+  fi
 }
 
 container_exists() {

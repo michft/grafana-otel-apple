@@ -67,6 +67,8 @@ Key differences:
 
 The goal is the same local observability end-user experience, not byte-for-byte
 runtime parity.
+The goal is the same local observability experience, not byte-for-byte
+runtime parity.
 
 ## Prerequisites
 
