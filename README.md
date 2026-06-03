@@ -58,31 +58,20 @@ decomposed stack.
 
 Key differences:
 
-- Upstream runs one bundled image. This repo runs six separate containers.
-- Upstream assumes a Docker-like runtime. This repo targets Apple's
-  `container` CLI on macOS.
-- Upstream can rely on its own internal filesystem layout. This repo
-  renders config into `configs/rendered/` and mounts directories because
-  Apple `container` `0.12.3` rejected host-file bind mounts in this
-  workflow with `path '.../file' is not a directory`, while mounting the
-  containing directory worked.
-- Upstream wires services internally by container-local names and bundled
-  config. This repo renders backend IPs into runtime config because, on
-  Apple `container` `0.12.3` in this workflow, containers on the same
-  custom network could reach each other by direct IP but name-based
-  access failed with `wget: bad address 'container-name:port'`.
+- Upstream runs one bundled image, assumes a Docker-like runtime. This repo 
+  runs six separate OCI containers targeting Apple's `container` CLI on macOS.
 - Upstream includes optional OBI/eBPF support. This repo intentionally
-  defers OBI.
+  defers OBI. You can implement or fork if you want.
 - Upstream is one artifact. This repo lets you start or debug services
   individually.
 
-The goal is the same local observability experience, not byte-for-byte
+The goal is the same local observability end-user experience, not byte-for-byte
 runtime parity.
 
 ## Prerequisites
 
 - macOS with Apple's `container` CLI installed
-- Apple container system available locally
+- local containers or networking to download them
 - `awk`
 - `curl`
 
@@ -136,7 +125,7 @@ Default credentials come from `.env`:
 - username: `admin`
 - password: `admin`
 
-Anonymous access is enabled by default in this repo.
+Anonymous access is enabled by default in this repo. This is not a bug.
 
 ## Start Services Individually
 
